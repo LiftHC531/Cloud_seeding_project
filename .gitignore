@@ -30,3 +30,15 @@
 *.exe
 *.out
 *.app
+
+# Data
+*.csv
+*.txt
+*.dat
+*.bin
+*.tif
+*.tfw
+*.xml
+
+# Figure
+*.png

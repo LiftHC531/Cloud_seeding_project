@@ -18,12 +18,12 @@ UTC_log = 1 # 0: LST, 1: UTC
 def get_Falcon_file():
     ''' Similar with "ls -tr Falcon*.csv" '''
     Path = './rawdata/drone/'
-    ff = sorted(glob.glob(Path+"Falcon*.csv"), key=os.path.getmtime)
+    ff = sorted(glob.glob(Path+"*Falcon*.csv"), key=os.path.getmtime)
     #print(ff)
     return ff
 
 def read_Falcon_data(ff):
-    ''' Time (LST) '''
+    ''' Time (UTC) '''
     print("\033[44mReading file: {}\033[0m".format(ff))
     data = pd.read_csv(r''+ff,sep=',',encoding='big5') #gb18030
     print(data.head(10))
@@ -33,53 +33,56 @@ def read_Falcon_data(ff):
     var = np.empty(shape=data.shape,dtype=np.float64)
     print(var.shape)
     print("\033[94mData source: CALab, NCU\n" + \
-          "Airborne instrument: Aerobox\nTime (LST, GMT+8)\n" + \
+          "Airborne instrument: Aerobox\nTime (UTC)\n" + \
           " Variables:{}\033[0m".format(col_name[:]))
           #" Variables:{}\033[0m".format(col_name[0:6+1]))
     for i in range(data.shape[1]):
         var[:,i] = data[col_name[i]]
     #lat = data[col_name[9]].tolist()#; print(lat)
     #lon = data[col_name[10]].tolist()#; print(lon)
-    #date_lst = data[col_name[12]].tolist()
-    time = [str(dd)[8:14] for dd in var[:,12]]
+    #date_utc = data[col_name[12]].tolist()
+    time = [str(dd)[8:14] for dd in var[:,13]]
     #print(var[:,1])
+
     return var, time
 
 def rearange_data(var, time):
     'per second'
     nv = np.int(len(var[0,:]))
-    #--- 12:30:00 - 12:59:59 LST ---
-    ti = 123000 
-    tf = 123059
-    t_labels = np.arange(ti,tf+1)
-    for i in range(1,59-30+1):
-        ii1 = ti + 100*i
-        ii2 = tf + 100*i
+    #--- 05:00:00 - 05:59:59 UTC ---
+    ti = 50000
+    tf = 50059
+    t_labels = np.arange(ti, tf+1)
+    for i in range(1,59+1):
+        ii1 = ti+100*i
+        ii2 = tf+100*i
         t_labels = np.concatenate((t_labels, np.arange(ii1,ii2+1)), axis=None)
     #print(t_labels)
-    #--- 13:00:00 - 13:10:00 LST ---
-    ti = 130000 
-    tf = 130059
-    for i in range(10):
-        ii1 = ti + 100*i
-        ii2 = tf + 100*i
+    #--- 06:00:00 - 06:05:00 UTC ---
+    ti = 60000
+    tf = 60059
+    for i in range(5):
+        ii1 = ti+100*i
+        ii2 = tf+100*i
         t_labels = np.concatenate((t_labels, np.arange(ii1,ii2+1)), axis=None)
-    t_labels = np.concatenate((t_labels, [131000]), axis=None)
+    t_labels = np.concatenate((t_labels, [50500]), axis=None)
     print(t_labels.shape)
     print(t_labels)
     nt = np.int(len(t_labels))
     v = np.empty(shape=(nt,nv), dtype=np.float64)
     v[:,:] = undef
+
     for t,t_label in enumerate(t_labels):
         for i,ti in enumerate(time):
             if np.float(ti) == np.float(t_label):
                v[t,:] = np.float64(var[i,:])
     #Check NaN
     v = np.where(np.isnan(v), undef, v)    
+    v[:,7] = np.where(v[:,7] > 1200., undef, v[:,7])    
     return v, t_labels
 
 def wks_setting(res,vn):
-    image_name = "{}_timeseries_Falcon_20190603".format(vn)
+    image_name = "{}_timeseries_Falcon_20191031".format(vn)
     wks_type = "png"
     print("\033[44m---Plot: {}.{} ---\033[0m".format(image_name,wks_type))
     rlist = Ngl.Resources()
@@ -96,30 +99,32 @@ def wks_setting(res,vn):
 
 #--------------------------------------------------------------------
 Files = get_Falcon_file()
-var, time = read_Falcon_data(Files[0])
+var, time = read_Falcon_data(Files[1])
+#print(time)
 vv, tt = rearange_data(var, time); del var, time
 print(vv.shape)
 nx, ny = np.int32(vv.shape)
 xx = np.arange(len(tt)) #x-axis (Time)
 
 # Time Labels for plot    
-t_labels = [1230, 1235, 1240, 1245, 1250, 1255, 
-            1300, 1305, 1310,
-           ]
-# LST -> UTC
-t_labels_utc = [] 
+t_labels_utc = np.concatenate((np.arange(500,560,5), [600,605]),axis=None)
+t_labels_utc = t_labels_utc.tolist() # integer -> string
+# UTC -> LST
+t_labels = [] 
 xarray = []
-for t_label in t_labels:
-    utc = "{:04d}".format(np.int(t_label)-800)
-    t_labels_utc.append(utc)   
+for t,t_label in enumerate(t_labels_utc):
+    t_labels_utc[t] = "{:04d}".format(np.int(t_label))
+    lst = "{:04d}".format(np.int(t_label+800))
+    t_labels.append(lst)   
     for i,ti in enumerate(tt):
         if np.float(ti) == t_label*100.: 
            xarray.append(i)
-# Find the time index after fire
+# Find the time index after seeding 
 for i,ti in enumerate(tt):
-    if np.float(ti) == 125700:
+    if np.float(ti) == 52800:
        fire_i = i
 print(xarray)
+#print(t_labels_utc)
 ''' Plot '''
 var_name = ['P','T','th','RH','qv','Td','PM25','hgt']
 for i in range(0,7+1):
@@ -157,7 +162,7 @@ for i in range(0,7+1):
     res.tmYRLabelFont = res.tmYLLabelFont
     res.tmXBLabelFontHeightF = 0.015; res.tmYLLabelFontHeightF = res.tmXBLabelFontHeightF
     res.tmYRLabelFontHeightF = res.tmYLLabelFontHeightF
-   
+    
     if ~('res_d' in locals()):
        res_d = copy.deepcopy(res)
        res_d.xyLineColor = "red"

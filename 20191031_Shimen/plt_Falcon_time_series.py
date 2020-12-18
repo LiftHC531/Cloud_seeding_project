@@ -41,6 +41,7 @@ def read_Falcon_data(ff):
     #lat = data[col_name[9]].tolist()#; print(lat)
     #lon = data[col_name[10]].tolist()#; print(lon)
     #date_utc = data[col_name[12]].tolist()
+    #time = [str(dd)[8:14] for dd in var[:,12]]
     time = [str(dd)[8:14] for dd in var[:,13]]
     #print(var[:,1])
 
@@ -65,7 +66,7 @@ def rearange_data(var, time):
         ii1 = ti+100*i
         ii2 = tf+100*i
         t_labels = np.concatenate((t_labels, np.arange(ii1,ii2+1)), axis=None)
-    t_labels = np.concatenate((t_labels, [50500]), axis=None)
+    t_labels = np.concatenate((t_labels, [60500]), axis=None)
     print(t_labels.shape)
     print(t_labels)
     nt = np.int(len(t_labels))
@@ -74,6 +75,7 @@ def rearange_data(var, time):
 
     for t,t_label in enumerate(t_labels):
         for i,ti in enumerate(time):
+            #print(ti)
             if np.float(ti) == np.float(t_label):
                v[t,:] = np.float64(var[i,:])
     #Check NaN
@@ -99,7 +101,7 @@ def wks_setting(res,vn):
 
 #--------------------------------------------------------------------
 Files = get_Falcon_file()
-var, time = read_Falcon_data(Files[1])
+var, time = read_Falcon_data(Files[2])
 #print(time)
 vv, tt = rearange_data(var, time); del var, time
 print(vv.shape)
@@ -124,7 +126,8 @@ for i,ti in enumerate(tt):
     if np.float(ti) == 52800:
        fire_i = i
 print(xarray)
-#print(t_labels_utc)
+print(tt[xarray])
+print(t_labels_utc)
 ''' Plot '''
 var_name = ['P','T','th','RH','qv','Td','PM25','hgt']
 for i in range(0,7+1):
